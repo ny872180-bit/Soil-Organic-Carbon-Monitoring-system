@@ -1,0 +1,133 @@
+# Soil Organic Carbon (SOC) Monitoring Platform
+
+A scalable, browser-based platform for quantifying and mapping SOC across agricultural regions using real remote sensing APIs, spectral indices, and an on-device AI/ML prediction engine.
+
+---
+
+## Proposed Architecture
+
+```
+Soil/
+├── index.html          # Single-page app shell + routing
+├── css/
+│   └── style.css       # Design system (dark agri theme)
+├── js/
+│   ├── app.js          # App init, router, state management
+│   ├── map.js          # Leaflet map, polygon drawing, layer toggling
+│   ├── api.js          # All external API calls
+│   ├── ml.js           # SOC estimation model (regression engine)
+│   ├── charts.js       # Chart.js dashboard components
+│   └── export.js       # CSV / GeoJSON export
+└── assets/
+    └── icons/          # SVG icons, logos
+```
+
+---
+
+## Proposed Changes
+
+### Frontend Shell
+
+#### [NEW] [index.html](file:///Users/niteshyadav/Desktop/Soil/index.html)
+Single-page app with 5 sections rendered via JS routing:
+- **Hero/Landing** — animated stats, CTA
+- **Dashboard** — KPI cards + trend charts  
+- **Field Map** — Leaflet map with draw tools
+- **SOC Analysis** — API-driven soil data + ML prediction
+- **Reports** — exportable charts and tables
+
+#### [NEW] [css/style.css](file:///Users/niteshyadav/Desktop/Soil/css/style.css)
+Dark agri-tech design system:
+- CSS custom properties (color tokens, spacing scale)
+- Glassmorphism cards
+- Animated gradient hero
+- Responsive grid layout
+- Custom map panel styling
+
+---
+
+### JavaScript Modules
+
+#### [NEW] [js/api.js](file:///Users/niteshyadav/Desktop/Soil/js/api.js)
+Integrates 4 free, no-auth APIs:
+
+| API | Endpoint | Data Returned |
+|---|---|---|
+| **SoilGrids v2** | `rest.isric.org/soilgrids/v2.0` | SOC (g/kg), pH, clay, bulk density |
+| **Open-Meteo** | `api.open-meteo.com/v1/forecast` | Temp, precipitation, soil moisture |
+| **NASA POWER** | `power.larc.nasa.gov/api/temporal` | Solar radiation, NDVI proxies |
+| **Nominatim** | `nominatim.openstreetmap.org` | Geocoding / reverse geocoding |
+
+#### [NEW] [js/ml.js](file:///Users/niteshyadav/Desktop/Soil/js/ml.js)
+On-device SOC estimation engine using validated literature coefficients:
+- **Input covariates**: NDVI, EVI, BSI, clay%, bulk density, MAP, MAT, elevation
+- **Model**: Gaussian Process Regression (simplified polynomial approximation using published SOC-spectral relationships from Viscarra Rossel et al., 2016)
+- **Outputs**: SOC (%), carbon stock (t C/ha), uncertainty range, carbon sequestration potential
+
+Spectral index formulas embedded:
+```
+NDVI = (NIR - Red) / (NIR + Red)
+EVI  = 2.5 × (NIR - Red) / (NIR + 6×Red - 7.5×Blue + 1)
+BSI  = ((Red + SWIR1) - (NIR + Blue)) / ((Red + SWIR1) + (NIR + Blue))
+```
+
+#### [NEW] [js/map.js](file:///Users/niteshyadav/Desktop/Soil/js/map.js)
+Leaflet.js interactive map:
+- Multiple base layers: OSM, ESRI Satellite, OpenTopoMap
+- Leaflet.draw for field polygon drawing
+- Heatmap overlay for SOC values across points
+- Marker popups with SOC readings
+- Layer control panel
+
+#### [NEW] [js/charts.js](file:///Users/niteshyadav/Desktop/Soil/js/charts.js)
+Chart.js powered analytics:
+- SOC trend line chart (temporal)
+- Carbon stock bar chart by field
+- Climate correlation scatter plot
+- Confidence interval area chart
+- Soil property radar chart
+
+#### [NEW] [js/export.js](file:///Users/niteshyadav/Desktop/Soil/js/export.js)
+- Export field data as **CSV**
+- Export field geometry as **GeoJSON**
+- Print-friendly report generation
+
+#### [NEW] [js/app.js](file:///Users/niteshyadav/Desktop/Soil/js/app.js)
+Main application controller:
+- Tab/section navigation
+- Global state store (fields, API results, predictions)
+- Event bus for cross-module communication
+- Location search + auto-pan map
+
+---
+
+## Key Features
+
+| Feature | Implementation |
+|---|---|
+| Field Drawing | Leaflet.draw polygon tool |
+| SOC Mapping | SoilGrids API + ML interpolation |
+| Remote Sensing | Spectral index computation (NDVI, EVI, BSI, NDWI) |
+| Climate Context | Open-Meteo + NASA POWER |
+| AI Prediction | Regression model with confidence bounds |
+| Temporal Trends | Historical chart from monthly API queries |
+| Export | CSV, GeoJSON download |
+
+---
+
+## Verification Plan
+
+### Automated / Browser Tests
+1. **Start local server** → `cd /Users/niteshyadav/Desktop/Soil && python3 -m http.server 8080`
+2. Open `http://localhost:8080` in browser subagent
+3. Verify each section renders (Dashboard, Map, Analysis, Reports)
+4. Verify SoilGrids API call returns data for test coords (18.5204°N, 73.8567°E — Pune, India)
+5. Verify ML engine outputs SOC %, carbon stock, sequestration
+6. Verify Leaflet map loads with satellite layer
+7. Verify Chart.js dashboard renders all 5 chart types
+
+### Manual Verification
+1. Draw a polygon on the map → confirm SOC analysis panel populates
+2. Search a location → confirm map re-centers
+3. Click "Export CSV" → confirm file downloads with correct headers
+

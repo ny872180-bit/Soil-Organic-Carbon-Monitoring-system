@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOC Monitor — Soil Organic Carbon Intelligence Platform</title>
+  <meta name="description"
+    content="AI-powered Soil Organic Carbon monitoring using remote sensing APIs. Map, quantify, and track SOC across agricultural regions." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap"
+    rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+
+  <!-- ── SIDEBAR NAVIGATION ── -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <i class="fa-solid fa-seedling"></i>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">SOC Monitor</span>
+        <span class="logo-sub">Carbon Intelligence</span>
+      </div>
+    </div>
+
+    <ul class="nav-items" id="navItems">
+      <li class="nav-item active" data-section="dashboard">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Dashboard</span>
+      </li>
+      <li class="nav-item" data-section="fieldmap">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <span>Field Map</span>
+      </li>
+      <li class="nav-item" data-section="analysis">
+        <i class="fa-solid fa-flask"></i>
+        <span>SOC Analysis</span>
+      </li>
+      <li class="nav-item" data-section="remote">
+        <i class="fa-solid fa-satellite"></i>
+        <span>Remote Sensing</span>
+      </li>
+      <li class="nav-item" data-section="reports">
+        <i class="fa-solid fa-file-chart-column"></i>
+        <span>Reports</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="status-pill live">
+        <span class="pulse-dot"></span>
+        APIs Connected
+      </div>
+      <p class="version">v2.1.0 · Feb 2026</p>
+    </div>
+  </nav>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main-content" id="mainContent">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle"><i class="fa-solid fa-bars"></i></button>
+        <div class="search-wrapper">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="locationSearch" placeholder="Search region or coordinates…" autocomplete="off" />
+          <div class="search-results" id="searchResults"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="time-display" id="timeDisplay"></div>
+
+        <div class="api-badges">
+          <span class="badge" title="SoilGrids API">SG</span>
+          <span class="badge" title="Open-Meteo API">OM</span>
+          <span class="badge" title="NASA POWER API">NASA</span>
+        </div>
+        <button class="btn-primary" id="exportBtn"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION: DASHBOARD
+    ═══════════════════════════════════════════════════════ -->
+    <section class="page active" id="page-dashboard">
+
+      <div class="page-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <h1>Carbon Intelligence Dashboard</h1>
+            <p>Real-time SOC monitoring across your agricultural fields using AI-powered remote sensing</p>
+          </div>
+          <div id="dashLocationBadge"
+            style="display:flex;align-items:center;gap:8px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:20px;padding:6px 14px;font-size:12px;color:rgba(240,253,244,0.7)">
+            <i class="fa-solid fa-location-dot" style="color:#22c55e"></i>
+            <span id="dashLocationText">Loading location…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Retraining & Metrics Dashboard -->
+      <div class="glass-card"
+        style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+        <div>
+          <h4 style="margin-bottom:8px;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-microchip"
+              style="color:#22c55e"></i> Active AI Model Performance</h4>
+          <div style="display:flex;gap:18px;font-size:13px">
+            <div><span style="color:rgba(240,253,244,0.6)">Test R² Score:</span> <strong id="modelR2"
+                style="color:#22c55e;font-size:15px;margin-left:4px">—</strong></div>
+            <div><span style="color:rgba(240,253,244,0.6)">Test RMSE:</span> <strong id="modelRMSE"
+                style="color:#f59e0b;font-size:15px;margin-left:4px">—</strong></div>
+          </div>
+        </div>
+        <div>
+          <button class="btn-outline" id="retrainUploadBtn" style="gap:8px;padding:8px 14px"><i
+              class="fa-solid fa-cloud-arrow-up"></i> Upload Data & Retrain</button>
+          <input type="file" id="retrainFileInput" accept=".csv" style="display:none" />
+          <p style="font-size:10px;color:rgba(240,253,244,0.4);margin-top:6px;text-align:right">Secure internal Flask
+            endpoint</p>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card" id="kpi-soc">
+          <div class="kpi-icon green"><i class="fa-solid fa-leaf"></i></div>
+          <div class="kpi-content">
+            <span class="kpi-label">Avg SOC Content</span>
+            <span class="kpi-value" id="kpiSoc">—</span>
+            <span class="kpi-unit">g/kg</span>
+          </div>
+          <div class="kpi-trend up" id="kpiSocTrend">+2.3%</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-stock">
+          <div class="kpi-icon blue"><i class="fa-solid fa-database"></i></div>
+          <div class="kpi-content">
+            <span class="kpi-label">Carbon Stock</span>
+            <span class="kpi-value" id="kpiStock">—</span>
+            <span class="kpi-unit">t C/ha</span>
+          </div>
+          <div class="kpi-trend up" id="kpiStockTrend">+1.8%</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-ndvi">
+          <div class="kpi-icon amber"><i class="fa-solid fa-sun"></i></div>
+          <div class="kpi-content">
+            <span class="kpi-label">NDVI Index</span>
+            <span class="kpi-value" id="kpiNdvi">—</span>
+            <span class="kpi-unit">index</span>
+          </div>
+          <div class="kpi-trend neutral" id="kpiNdviTrend">0.0%</div>
+        </div>
+
+        <div class="kpi-card" id="kpi-seq">
+          <div class="kpi-icon purple"><i class="fa-solid fa-arrows-to-circle"></i></div>
+          <div class="kpi-content">
+            <span class="kpi-label">Sequestration Rate</span>
+            <span class="kpi-value" id="kpiSeq">—</span>
+            <span class="kpi-unit">t CO₂/ha/yr</span>
+          </div>
+          <div class="kpi-trend up" id="kpiSeqTrend">+3.1%</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row charts-row-wide">
+        <div class="chart-card wide">
+          <div class="chart-header">
+            <h3>SOC Trend Analysis (12-Month)</h3>
+            <div class="chart-controls">
+              <button class="chip active" data-range="6m">6M</button>
+              <button class="chip" data-range="12m">12M</button>
+              <button class="chip" data-range="24m">24M</button>
+            </div>
+          </div>
+          <canvas id="socTrendChart" height="200"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Soil Properties Radar</h3>
+          </div>
+          <canvas id="soilRadarChart" height="220" style="max-height:220px"></canvas>
+        </div>
+      </div>
+
+      <!-- Second Charts Row -->
+      <div class="charts-row charts-row-three">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Carbon Stock by Layer</h3>
+          </div>
+          <canvas id="carbonStockChart" height="220"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Climate vs SOC Correlation</h3>
+          </div>
+          <canvas id="climateCorrelChart" height="220"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>NDVI Monthly Distribution</h3>
+          </div>
+          <canvas id="ndviBarChart" height="220"></canvas>
+        </div>
+      </div>
+    </section>
+
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION: FIELD MAP
+    ═══════════════════════════════════════════════════════ -->
+    <section class="page" id="page-fieldmap">
+      <div class="page-header">
+        <h1>Interactive Field Mapper</h1>
+        <p>Draw field boundaries, click locations to fetch real-time soil data from SoilGrids API</p>
+      </div>
+
+      <div class="map-layout">
+        <div class="map-sidebar">
+          <div class="map-tool-group">
+            <h4><i class="fa-solid fa-draw-polygon"></i> Field Tools</h4>
+            <button class="tool-btn active" id="btnDraw"><i class="fa-solid fa-pen-nib"></i> Draw Polygon</button>
+            <button class="tool-btn" id="btnMarker"><i class="fa-solid fa-location-dot"></i> Add Point</button>
+            <button class="tool-btn danger" id="btnClear"><i class="fa-solid fa-trash"></i> Clear All</button>
+          </div>
+
+          <div class="map-tool-group">
+            <h4><i class="fa-solid fa-layer-group"></i> Map Layers</h4>
+            <label class="toggle-row">
+              <span>Satellite</span>
+              <input type="radio" name="basemap" value="satellite" checked />
+            </label>
+            <label class="toggle-row">
+              <span>Terrain</span>
+              <input type="radio" name="basemap" value="terrain" />
+            </label>
+            <label class="toggle-row">
+              <span>Street</span>
+              <input type="radio" name="basemap" value="street" />
+            </label>
+          </div>
+
+          <div class="map-tool-group">
+            <h4><i class="fa-solid fa-map-pin"></i> Saved Fields</h4>
+            <div id="savedFieldsList" class="field-list">
+              <p class="empty-msg">No fields drawn yet</p>
+            </div>
+          </div>
+
+          <div class="map-stat-panel" id="mapStatPanel">
+            <h4><i class="fa-solid fa-circle-info"></i> Point Info</h4>
+            <p class="map-hint">Click a location on the map to fetch soil data</p>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div id="mainMap"></div>
+          <div class="map-legend">
+            <div class="legend-item"><span class="legend-dot green"></span> High SOC (>30 g/kg)</div>
+            <div class="legend-item"><span class="legend-dot amber"></span> Medium SOC (15-30)</div>
+            <div class="legend-item"><span class="legend-dot red"></span> Low SOC (<15 g/kg)</div>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION: SOC ANALYSIS
+    ═══════════════════════════════════════════════════════ -->
+    <section class="page" id="page-analysis">
+      <div class="page-header" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <h1>SOC Analysis Engine</h1>
+            <p>Click the map or search to select a location, then run AI analysis</p>
+          </div>
+          <button id="anaGpsBtn" class="btn-outline" style="gap:6px;padding:7px 14px;font-size:12px"
+            title="Use my live GPS location">
+            <i class="fa-solid fa-location-crosshairs" style="color:#22c55e"></i> Live Location
+          </button>
+        </div>
+      </div>
+
+      <!-- Field-Map-style layout: sidebar left, full map right -->
+      <div class="map-layout" style="height:calc(100vh - 260px);min-height:460px">
+
+        <!-- Left sidebar: search + params + presets + quick result -->
+        <div class="map-sidebar">
+
+          <!-- Search -->
+          <div class="map-tool-group" style="padding:14px">
+            <h4><i class="fa-solid fa-magnifying-glass"></i> Search Location</h4>
+            <div style="position:relative;margin-bottom:8px">
+              <i class="fa-solid fa-magnifying-glass"
+                style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:rgba(240,253,244,0.35);font-size:12px;pointer-events:none"></i>
+              <input type="text" id="anaSearch" placeholder="City, region, coordinates…" autocomplete="off"
+                style="padding-left:32px;width:100%;box-sizing:border-box;font-size:12px" />
+              <div id="anaSearchResults" class="search-results" style="top:100%;left:0;right:0;z-index:500"></div>
+            </div>
+            <div
+              style="display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:rgba(240,253,244,0.45)">
+              <i class="fa-solid fa-crosshairs" style="color:#22c55e;font-size:11px"></i>
+              <span id="coordText">20.5937°N, 78.9629°E</span>
+            </div>
+            <input type="hidden" id="anaLat" value="20.5937" />
+            <input type="hidden" id="anaLon" value="78.9629" />
+          </div>
+
+          <!-- Parameters -->
+          <div class="map-tool-group" style="padding:14px">
+            <h4><i class="fa-solid fa-sliders"></i> Parameters</h4>
+            <div class="form-group" style="margin-bottom:10px">
+              <label style="font-size:11px">Soil Depth</label>
+              <select id="anaDepth" style="font-size:12px;padding:7px 10px">
+                <option value="0-5cm">0 – 5 cm</option>
+                <option value="0-30cm" selected>0 – 30 cm</option>
+                <option value="30-60cm">30 – 60 cm</option>
+                <option value="60-100cm">60 – 100 cm</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:14px">
+              <label style="font-size:11px">Land Use</label>
+              <select id="anaLandUse" style="font-size:12px;padding:7px 10px">
+                <option value="cropland">Cropland</option>
+                <option value="grassland">Grassland</option>
+                <option value="forest">Forest</option>
+                <option value="degraded">Degraded Land</option>
+              </select>
+            </div>
+            <button class="btn-primary full-width" id="runAnalysis" style="font-size:13px">
+              <i class="fa-solid fa-bolt"></i> Run AI Analysis
+            </button>
+          </div>
+
+          <!-- Preset Locations -->
+          <div class="map-tool-group" style="padding:14px">
+            <h4><i class="fa-solid fa-bookmark"></i> Presets</h4>
+            <div class="preset-list">
+              <button class="preset-btn" data-lat="20.5937" data-lon="78.9629">🇮🇳 Central India</button>
+              <button class="preset-btn" data-lat="28.6139" data-lon="77.2090">🇮🇳 Delhi NCR</button>
+              <button class="preset-btn" data-lat="17.3850" data-lon="78.4867">🇮🇳 Hyderabad</button>
+              <button class="preset-btn" data-lat="41.8781" data-lon="-87.6298">🇺🇸 Illinois, USA</button>
+              <button class="preset-btn" data-lat="-14.2350" data-lon="-51.9253">🇧🇷 Brazil Cerrado</button>
+              <button class="preset-btn" data-lat="51.5074" data-lon="-0.1278">🇬🇧 UK Farmlands</button>
+            </div>
+          </div>
+
+          <!-- Quick result summary (shown after analysis) -->
+          <div class="map-stat-panel" id="anaQuickResult" style="display:none">
+            <h4><i class="fa-solid fa-seedling"></i> Last Result</h4>
+            <div id="anaQuickResultBody" style="font-size:13px;display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+        </div>
+
+        <!-- Full-height satellite map -->
+        <div class="map-container" style="position:relative">
+          <div id="anaPickerMap" style="height:100%;width:100%"></div>
+          <!-- Hint overlay -->
+          <div id="anaMapHint"
+            style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(8,14,11,0.85);border:1px solid rgba(34,197,94,0.25);border-radius:20px;padding:7px 16px;font-size:12px;color:rgba(240,253,244,0.65);pointer-events:none;z-index:400;white-space:nowrap;backdrop-filter:blur(10px)">
+            <i class="fa-solid fa-hand-pointer" style="color:#22c55e;margin-right:6px"></i>Click map to pick location ·
+            then Run AI Analysis
+          </div>
+          <!-- Loader overlay -->
+          <div class="analysis-loader hidden" id="analysisLoader"
+            style="position:absolute;inset:0;background:rgba(8,14,11,0.72);z-index:410;backdrop-filter:blur(4px)">
+            <div class="loader-orbit"></div>
+            <p>Fetching soil data from APIs…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Results (shown below map after analysis) ── -->
+      <div id="analysisResults" class="hidden" style="margin-top:16px">
+
+        <!-- SOC hero card -->
+        <div class="result-hero-card">
+          <div class="result-icon-wrap green">
+            <i class="fa-solid fa-seedling fa-2x"></i>
+          </div>
+          <div class="result-hero-content" style="flex:1">
+            <span class="result-label">AI-Predicted SOC Content</span>
+            <div class="result-value-row">
+              <span class="result-big-val" id="resSoc">—</span>
+              <span class="result-unit">g/kg</span>
+              <span class="confidence-badge" id="resConf">—</span>
+            </div>
+            <div class="result-range">
+              <span>Range: <span id="resSocRange">—</span></span>
+              <div class="confidence-bar">
+                <div class="conf-fill" id="confFill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini cards -->
+        <div class="result-grid" style="margin-top:12px">
+          <div class="result-mini-card">
+            <i class="fa-solid fa-weight-scale blue-icon"></i>
+            <span class="mini-label">Carbon Stock</span>
+            <span class="mini-val" id="resCarbonStock">—</span>
+            <span class="mini-unit">t C/ha</span>
+          </div>
+          <div class="result-mini-card">
+            <i class="fa-solid fa-arrow-trend-up green-icon"></i>
+            <span class="mini-label">Sequestration</span>
+            <span class="mini-val" id="resSeq">—</span>
+            <span class="mini-unit">t CO₂/ha/yr</span>
+          </div>
+          <div class="result-mini-card">
+            <i class="fa-solid fa-droplet amber-icon"></i>
+            <span class="mini-label">Bulk Density</span>
+            <span class="mini-val" id="resBD">—</span>
+            <span class="mini-unit">g/cm³</span>
+          </div>
+          <div class="result-mini-card">
+            <i class="fa-solid fa-flask purple-icon"></i>
+            <span class="mini-label">Soil pH</span>
+            <span class="mini-val" id="resPH">—</span>
+            <span class="mini-unit">pH</span>
+          </div>
+          <div class="result-mini-card">
+            <i class="fa-solid fa-layer-group amber-icon"></i>
+            <span class="mini-label">Clay Content</span>
+            <span class="mini-val" id="resClay">—</span>
+            <span class="mini-unit">g/kg</span>
+          </div>
+          <div class="result-mini-card">
+            <i class="fa-solid fa-temperature-half red-icon"></i>
+            <span class="mini-label">Soil Moisture</span>
+            <span class="mini-val" id="resMoisture">—</span>
+            <span class="mini-unit">%</span>
+          </div>
+        </div>
+
+        <!-- Climate + Spectral side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+          <div class="glass-card">
+            <h4><i class="fa-solid fa-cloud-sun"></i> Climate Context (Open-Meteo)</h4>
+            <div class="climate-row" id="climateRow"></div>
+          </div>
+          <div class="glass-card">
+            <h4><i class="fa-solid fa-satellite-dish"></i> Spectral Indices (AI-Derived)</h4>
+            <div class="indices-grid" id="indicesGrid"></div>
+          </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="glass-card recommendations" style="margin-top:16px;margin-bottom:32px">
+          <h4><i class="fa-solid fa-lightbulb"></i> AI Recommendations</h4>
+          <ul id="recommendationsList"></ul>
+        </div>
+      </div>
+
+      <!-- Placeholder before analysis -->
+      <div class="analysis-placeholder" id="analysisPlaceholder" style="padding:32px 0">
+        <i class="fa-solid fa-flask-vial fa-3x" style="opacity:0.3"></i>
+        <h3 style="margin-top:12px">Ready to Analyze</h3>
+        <p>Click a location on the map above or search, then click <strong>Run AI Analysis</strong>.</p>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION: REMOTE SENSING
+    ═══════════════════════════════════════════════════════ -->
+    <section class="page" id="page-remote">
+      <div class="page-header">
+        <h1>Remote Sensing Intelligence</h1>
+        <p>Spectral index computation and satellite-derived soil health indicators</p>
+      </div>
+
+      <div class="remote-layout">
+        <!-- Index Calculator -->
+        <div class="glass-card rs-calculator">
+          <h3><i class="fa-solid fa-calculator"></i> Spectral Index Calculator</h3>
+
+          <!-- Satellite Fetch Block -->
+          <div
+            style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:14px;margin-bottom:18px">
+            <div
+              style="font-size:11px;color:rgba(240,253,244,0.5);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">
+              <i class="fa-solid fa-satellite" style="color:#22c55e;margin-right:5px"></i>Auto-fetch from Satellite
+            </div>
+            <div style="font-size:12px;color:rgba(240,253,244,0.65);margin-bottom:10px;line-height:1.55">
+              Pull real <strong style="color:#4ade80">MODIS MOD09A1</strong> surface reflectance values (NASA, free) —
+              no manual entry needed.
+            </div>
+            <div
+              style="display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(240,253,244,0.45);margin-bottom:10px">
+              <i class="fa-solid fa-crosshairs" style="color:#22c55e"></i>
+              <span id="rsLocText">Using dashboard default location</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="fetchSatBands" class="btn-primary"
+                style="flex:1;font-size:12px;padding:8px 12px;justify-content:center">
+                <i class="fa-solid fa-satellite-dish"></i> Fetch Satellite Bands
+              </button>
+              <button id="useAnalysisLoc" class="btn-outline" style="font-size:12px;padding:8px 12px;gap:5px">
+                <i class="fa-solid fa-location-dot" style="color:#22c55e"></i> Use Analysis Loc
+              </button>
+            </div>
+            <div id="rsBandSource"
+              style="display:none;margin-top:10px;font-size:11px;padding:5px 10px;border-radius:6px;background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2)">
+            </div>
+          </div>
+
+          <p class="hint-text" style="margin-bottom:12px">Or enter band reflectance values manually (0–1):</p>
+
+          <div class="band-inputs">
+            <div class="band-row">
+              <label>🔵 Blue (B2)</label>
+              <input type="number" id="bandBlue" value="0.12" min="0" max="1" step="0.001" />
+            </div>
+            <div class="band-row">
+              <label>🟢 Green (B3)</label>
+              <input type="number" id="bandGreen" value="0.15" min="0" max="1" step="0.001" />
+            </div>
+            <div class="band-row">
+              <label>🔴 Red (B4)</label>
+              <input type="number" id="bandRed" value="0.18" min="0" max="1" step="0.001" />
+            </div>
+            <div class="band-row">
+              <label>🌿 NIR (B8)</label>
+              <input type="number" id="bandNIR" value="0.42" min="0" max="1" step="0.001" />
+            </div>
+            <div class="band-row">
+              <label>🌊 SWIR1 (B11)</label>
+              <input type="number" id="bandSWIR1" value="0.22" min="0" max="1" step="0.001" />
+            </div>
+            <div class="band-row">
+              <label>🌊 SWIR2 (B12)</label>
+              <input type="number" id="bandSWIR2" value="0.16" min="0" max="1" step="0.001" />
+            </div>
+          </div>
+
+          <button class="btn-primary full-width" id="calcIndices" style="margin-top:4px">
+            <i class="fa-solid fa-calculator"></i> Compute Indices
+          </button>
+        </div>
+
+        <!-- Index Results -->
+        <div class="rs-results">
+          <div class="indices-results-grid" id="rsResultsGrid">
+            <!-- Index cards rendered by JS -->
+          </div>
+
+          <!-- SOC from spectral -->
+          <div class="glass-card spectral-soc-card" id="spectralSocCard">
+            <h4><i class="fa-solid fa-brain"></i> AI SOC Estimate from Spectral Data</h4>
+            <div class="spectral-soc-display" id="spectralSocDisplay">
+              <div class="spectral-gauge-wrap">
+                <canvas id="socGaugeChart" width="200" height="120"></canvas>
+              </div>
+              <div class="spectral-soc-details" id="spectralSocDetails">
+                <p class="hint-text">Compute indices above to generate estimate</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sentinel Band Info -->
+      <div class="glass-card band-reference">
+        <h4><i class="fa-solid fa-satellite"></i> Sentinel-2 Band Reference</h4>
+        <div class="band-table-wrap">
+          <table class="band-table">
+            <thead>
+              <tr>
+                <th>Band</th>
+                <th>Wavelength</th>
+                <th>Resolution</th>
+                <th>Use in SOC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>B2 (Blue)</td>
+                <td>490 nm</td>
+                <td>10 m</td>
+                <td>BSI, EVI correction</td>
+              </tr>
+              <tr>
+                <td>B3 (Green)</td>
+                <td>560 nm</td>
+                <td>10 m</td>
+                <td>NDWI, chlorophyll</td>
+              </tr>
+              <tr>
+                <td>B4 (Red)</td>
+                <td>665 nm</td>
+                <td>10 m</td>
+                <td>NDVI, vegetation stress</td>
+              </tr>
+              <tr>
+                <td>B8 (NIR)</td>
+                <td>842 nm</td>
+                <td>10 m</td>
+                <td>NDVI, EVI, biomass</td>
+              </tr>
+              <tr>
+                <td>B11 (SWIR1)</td>
+                <td>1610 nm</td>
+                <td>20 m</td>
+                <td>Soil moisture, BSI</td>
+              </tr>
+              <tr>
+                <td>B12 (SWIR2)</td>
+                <td>2190 nm</td>
+                <td>20 m</td>
+                <td>Clay minerals, SOC</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════
+         SECTION: REPORTS
+    ═══════════════════════════════════════════════════════ -->
+    <section class="page" id="page-reports">
+      <div class="page-header">
+        <h1>Reports & Export</h1>
+        <p>Generate detailed soil carbon reports and export data in multiple formats</p>
+      </div>
+
+      <div class="reports-layout">
+        <div class="glass-card report-summary">
+          <div class="report-header-row">
+            <div>
+              <h3>Soil Carbon Assessment Report</h3>
+              <p class="report-date" id="reportDate"></p>
+            </div>
+            <div class="report-actions">
+              <button class="btn-outline" id="exportCSV"><i class="fa-solid fa-file-csv"></i> CSV</button>
+              <button class="btn-outline" id="exportGeoJSON"><i class="fa-solid fa-map"></i> GeoJSON</button>
+              <button class="btn-primary" id="printReport"><i class="fa-solid fa-print"></i> Print</button>
+            </div>
+          </div>
+
+          <!-- Report Stats -->
+          <div class="report-stats" id="reportStats">
+            <div class="rstat">
+              <span class="rstat-label">Fields Analyzed</span>
+              <span class="rstat-val" id="rstatFields">0</span>
+            </div>
+            <div class="rstat">
+              <span class="rstat-label">Avg SOC</span>
+              <span class="rstat-val" id="rstatSoc">—</span>
+            </div>
+            <div class="rstat">
+              <span class="rstat-label">Total Carbon Stock</span>
+              <span class="rstat-val" id="rstatCarbon">—</span>
+            </div>
+            <div class="rstat">
+              <span class="rstat-label">Sequestration Potential</span>
+              <span class="rstat-val" id="rstatSeq">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Report Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>SOC Confidence Intervals</h3>
+          </div>
+          <canvas id="confidenceChart" height="250"></canvas>
+        </div>
+
+        <!-- Data Table -->
+        <div class="glass-card">
+          <h4><i class="fa-solid fa-table"></i> Field Data Log</h4>
+          <div class="table-wrap">
+            <table class="data-table" id="dataTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Location</th>
+                  <th>SOC (g/kg)</th>
+                  <th>Carbon Stock</th>
+                  <th>NDVI</th>
+                  <th>pH</th>
+                  <th>Timestamp</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody">
+                <tr>
+                  <td colspan="8" class="empty-table-msg">Run an analysis to populate field data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── SCRIPTS ── -->
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- ONNX Runtime Web must be loaded before our ML engine -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+  <!-- App modules -->
+  <script src="js/api.js"></script>
+  <script src="js/ml.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
